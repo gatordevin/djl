@@ -13,11 +13,11 @@ task prepareNativeLibs() {
         delete "${buildDir}/native"
 
         def files = [
-                "linux/cu101": "https://files.pythonhosted.org/packages/fd/39/0b6c02541d5bfb89d922eee937b91911f11af65a243048440cfad9900ded/paddlepaddle_gpu-1.8.5.post107-cp38-cp38-manylinux1_x86_64.whl",
-                "linux/cpu"  : "https://files.pythonhosted.org/packages/6e/5b/385753db54c16b676683369f901b83a5e93429f667a37b640630d678ad93/paddlepaddle-1.8.5-cp38-cp38-manylinux1_x86_64.whl",
-                "osx/cpu"    : "https://files.pythonhosted.org/packages/ea/bf/06d7ecbebcc5c1925a2d831b441cfbac41e019c233a726c8938ed35253b9/paddlepaddle-1.8.5-cp38-cp38-macosx_10_14_x86_64.whl",
-                "win/cu101"  : "https://files.pythonhosted.org/packages/6f/23/97e5e3176f6289896e4ac4bbceffc93b5ea8c3edd7fbc008558368924612/paddlepaddle_gpu-1.8.5.post107-cp38-cp38-win_amd64.whl",
-                "win/cpu"    : "https://files.pythonhosted.org/packages/06/6e/5f32bad36f115669427cd77e73064084c7f5153481d3904e8bdd7b7e7a17/paddlepaddle-1.8.5-cp38-cp38-win_amd64.whl"
+                // "linux/cu101": "",
+                // "linux/cpu"  : "",
+                "osx/cpu": "https://paddle-inference-lib.bj.bcebos.com/mac/2.0-rc/cpu_avx_openblas/paddle_inference_install_dir.tgz",
+                // "win/cu101"  : "",
+                "win/cpu": "https://paddle-wheel.bj.bcebos.com/2.0.0-rc0/win-infer/mkl/cpu/paddle_inference_install_dir.zip"
         ]
 
         def downloadDir = file("${buildDir}/download")
@@ -33,18 +33,35 @@ task prepareNativeLibs() {
             }
 
             project.logger.lifecycle("Extracting native files from: ${fileName}")
-            copy {
-                from {
-                    zipTree(file).matching { include 'paddle/libs/**' }
+            if (fileName.endsWith(".zip")) {
+                copy {
+                    from {
+                        zipTree(file).matching { include "**/*.dll" }
+                    }
+                    eachFile {
+                        path = name
+                    }
+                    into "${buildDir}/native/${entry.key}/libs"
                 }
-                into "${buildDir}/native/tmp"
+            } else if (fileName.endsWith(".tgz")) {
+                File tmpDir = new File("${buildDir}/native/tmp")
+                tmpDir.mkdirs()
+                exec {
+                    workingDir tmpDir
+                    commandLine "sh", "-c", "tar xvfz ${file.absolutePath}"
+                }
+                copy {
+                    from(tmpDir) {
+                        include '**/*.dylib'
+                        include '**/*.so'
+                    }
+                    eachFile {
+                        path = name
+                    }
+                    into "${buildDir}/native/${entry.key}/libs"
+                }
+                delete "${buildDir}/native/tmp"
             }
-
-            File srcDir = new File("${buildDir}/native/tmp/paddle/libs")
-            File nativeDir = new File("${buildDir}/native/${entry.key}")
-            nativeDir.getParentFile().mkdirs();
-            srcDir.renameTo(nativeDir)
-            delete "${buildDir}/native/tmp"
         }
 
         exec {
