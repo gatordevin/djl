@@ -18,6 +18,8 @@ import ai.djl.ndarray.NDArrays;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.translate.Batchifier;
+import ai.djl.translate.PairedPipeline;
+import ai.djl.translate.PairedTransform;
 import ai.djl.translate.Pipeline;
 import ai.djl.translate.Transform;
 import ai.djl.translate.TranslateException;
@@ -42,6 +44,7 @@ public abstract class RandomAccessDataset implements Dataset {
     protected Batchifier labelBatchifier;
     protected Pipeline pipeline;
     protected Pipeline targetPipeline;
+    protected PairedPipeline pairedPipeline;
     protected ExecutorService executor;
     protected int prefetchNumber;
     protected long limit;
@@ -61,6 +64,7 @@ public abstract class RandomAccessDataset implements Dataset {
         this.labelBatchifier = builder.labelBatchifier;
         this.pipeline = builder.pipeline;
         this.targetPipeline = builder.targetPipeline;
+        this.pairedPipeline = builder.pairedPipeline;
         this.executor = builder.executor;
         this.prefetchNumber = builder.prefetchNumber;
         this.limit = builder.limit;
@@ -88,6 +92,7 @@ public abstract class RandomAccessDataset implements Dataset {
                 dataBatchifier,
                 labelBatchifier,
                 pipeline,
+                pairedPipeline,
                 targetPipeline,
                 executor,
                 prefetchNumber,
@@ -113,6 +118,7 @@ public abstract class RandomAccessDataset implements Dataset {
                 dataBatchifier,
                 labelBatchifier,
                 pipeline,
+                pairedPipeline,
                 targetPipeline,
                 executor,
                 prefetchNumber,
@@ -233,6 +239,7 @@ public abstract class RandomAccessDataset implements Dataset {
         protected Batchifier labelBatchifier = Batchifier.STACK;
         protected Pipeline pipeline;
         protected Pipeline targetPipeline;
+        protected PairedPipeline pairedPipeline;
         protected ExecutorService executor;
         protected int prefetchNumber;
         protected long limit = Long.MAX_VALUE;
@@ -360,6 +367,33 @@ public abstract class RandomAccessDataset implements Dataset {
                 targetPipeline = new Pipeline();
             }
             targetPipeline.add(transform);
+            return self();
+        }
+        
+        /**
+         * Sets the {@link Pipeline} of {@link ai.djl.translate.Transform} to be applied on the
+         * labels.
+         *
+         * @param pairedPipeline the {@link PairedPipeline} of {@link ai.djl.translate.PairedTransform} to be
+         *     applied on the labels
+         * @return this {@code BaseBuilder}
+         */
+        public T optPairedPipeline(PairedPipeline pairedPipeline) {
+            this.pairedPipeline = pairedPipeline;
+            return self();
+        }
+
+        /**
+         * Adds the {@link PairedTransform} to the target {@link PairedPipeline} to be applied on the labels.
+         *
+         * @param transform the {@link PairedTransform} to be added
+         * @return this builder
+         */
+        public T addPairedTransform(PairedTransform transform) {
+            if (pairedPipeline == null) {
+                pairedPipeline = new PairedPipeline();
+            }
+            pairedPipeline.add(transform);
             return self();
         }
 

@@ -107,7 +107,6 @@ public class PikachuDetection extends RandomAccessDataset {
                 List<Float> label = entry.getValue();
                 // Class label
                 labelArray[0] = label.get(4);
-
                 // Bounding box labels
                 labelArray[1] = label.get(5);
                 labelArray[2] = label.get(6);
@@ -231,10 +230,11 @@ public class PikachuDetection extends RandomAccessDataset {
          * @return the {@link PikachuDetection}
          */
         public PikachuDetection build() {
-            if (pipeline == null) {
+            if (pairedPipeline == null && pipeline == null) {
                 pipeline = new Pipeline(new ToTensor());
             }
             return new PikachuDetection(this);
         }
+
     }
 }

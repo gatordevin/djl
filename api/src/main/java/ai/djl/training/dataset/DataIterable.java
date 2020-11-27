@@ -16,6 +16,7 @@ import ai.djl.Device;
 import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.translate.Batchifier;
+import ai.djl.translate.PairedPipeline;
 import ai.djl.translate.Pipeline;
 import java.io.IOException;
 import java.util.Arrays;
@@ -47,6 +48,7 @@ public class DataIterable implements Iterable<Batch>, Iterator<Batch> {
     private Batchifier dataBatchifier;
     private Batchifier labelBatchifier;
     private Pipeline pipeline;
+    private PairedPipeline pairedPipeline;
     private Pipeline targetPipeline;
     private ExecutorService executor;
     private Device device;
@@ -78,6 +80,7 @@ public class DataIterable implements Iterable<Batch>, Iterator<Batch> {
             Batchifier dataBatchifier,
             Batchifier labelBatchifier,
             Pipeline pipeline,
+            PairedPipeline pairedPipeline,
             Pipeline targetPipeline,
             ExecutorService executor,
             int preFetchNumber,
@@ -88,6 +91,7 @@ public class DataIterable implements Iterable<Batch>, Iterator<Batch> {
         this.dataBatchifier = dataBatchifier;
         this.labelBatchifier = labelBatchifier;
         this.pipeline = pipeline;
+        this.pairedPipeline = pairedPipeline;
         this.targetPipeline = targetPipeline;
         this.executor = executor;
         this.device = device;
@@ -167,12 +171,22 @@ public class DataIterable implements Iterable<Batch>, Iterator<Batch> {
         for (int i = 0; i < batchSize; i++) {
             Record record = dataset.get(subManager, indices.get(i));
             data[i] = record.getData();
+            labels[i] = record.getLabels();
+            //apply paired transform
+            if(pairedPipeline != null){
+                NDList[] transformResults = pairedPipeline.transform(data[i], labels[i]);
+                data[i] = transformResults[0];
+                labels[i] = transformResults[1];
+            }
             // apply transform
             if (pipeline != null) {
                 data[i] = pipeline.transform(data[i]);
             }
-
-            labels[i] = record.getLabels();
+            // apply label transform
+            if (targetPipeline != null) {
+                labels[i] = targetPipeline.transform(labels[i]);
+            }
+            
         }
         NDList batchData = dataBatchifier.batchify(data);
         NDList batchLabels = labelBatchifier.batchify(labels);
@@ -180,10 +194,7 @@ public class DataIterable implements Iterable<Batch>, Iterator<Batch> {
         Arrays.stream(data).forEach(NDList::close);
         Arrays.stream(labels).forEach(NDList::close);
 
-        // apply label transform
-        if (targetPipeline != null) {
-            batchLabels = targetPipeline.transform(batchLabels);
-        }
+        
         // pin to a specific device
         if (device != null) {
             batchData = batchData.toDevice(device, false);
